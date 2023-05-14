@@ -239,11 +239,36 @@ def water():
     material('Water', (0.10, 0.10, 0.60, 1.0))
     union('circle', radius=1, fill_type='TRIFAN', location=(0, 0, 0))
 
+@paragen
+def blocky_racer():
+    material('Body', (0.5, 0.5, 0.5, 1.0))
+    
+    union('cube', location=(-3, 0, 1.750), scale=(1, 1.50, 0.750))
+    union('cube', location=(-1, 0, 1.625), scale=(1, 1.25, 0.625))
+    union('cube', location=( 1, 0, 1.500), scale=(1, 1.00, 0.500))
+    union('cube', location=( 3, 0, 1.375), scale=(1, 0.75, 0.375))
+    
+    material('Wheel', (0.05, 0.05, 0.05, 1.0))
+    for x in [-3, 3]:
+        for y in [-3, 3]:
+            union('cylinder', radius=1, depth=1, location=(x, y, 1), rotation=(pi/2, 0, 0))
+    
+    material('Shaft', (0.2, 0.2, 0.2, 1.0))
+    for x in [-3, 3]:
+        difference('cylinder', radius=0.3, depth=4.5, vertices=8, location=(x, 0, 1), rotation=(pi/2, 0, 0))
+        union('cylinder', radius=0.15, depth=6, vertices=8, location=(x, 0, 1), rotation=(pi/2, 0, 0))
+
 #########
 # Scene #
 #########
 
-sad_scorpion_attempt(name='Sad Scorpion Attempt', location=(0, 30, 0))
-sand_castle(name='Sand Castle', location=(0, 50, 0))
-cactus_drink(name='Cactus Drink', location=(0, 70, 0), original=True)
+#sad_scorpion_attempt(name='Sad Scorpion Attempt', location=(0, 30, 0))
+#sand_castle(name='Sand Castle', location=(0, 50, 0))
+#cactus_drink(name='Cactus Drink', location=(0, 70, 0), original=True)
 #cactus_drink_2(name='Cactus Drink 2', location=(-10, 70, 0))
+blocky_racer(name="Racer", location=(0, 80, 0))
+
+# Unsolved problems:
+# - How to select an individual vertex and move or merge it
+# - How different material settings behave after export
+# - How to manage trees of objects
