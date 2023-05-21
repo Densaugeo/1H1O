@@ -258,6 +258,53 @@ def blocky_racer():
         difference('cylinder', radius=0.3, depth=4.5, vertices=8, location=(x, 0, 1), rotation=(pi/2, 0, 0))
         union('cylinder', radius=0.15, depth=6, vertices=8, location=(x, 0, 1), rotation=(pi/2, 0, 0))
 
+@paragen
+def helicarrier(mid_segments=1):
+    length = 80 + 40*mid_segments
+    
+    material('Blacktop', (0.02, 0.02, 0.02, 1.0))
+    union('cube', location=(0, 0, -1), scale=(length/2, 10, 1))
+    
+    material('Gray Steel', (0.2, 0.2, 0.2, 1.0))
+    
+    angled_side_1 = prim('cube', scale=(10.5, 2, 1.2))
+    for v in angled_side_1.data.vertices:
+        if v.co.x > 0 and v.co.y > 0: v.co.y -= 3
+    union(angled_side_1, location=( length/2 - 9.5,  12, -1), scale=( 1, 1, 1))
+    union(angled_side_1, location=( length/2 - 9.5, -12, -1), scale=( 1, -1, 1))
+    union(angled_side_1, location=(-length/2 + 9.5,  12, -1), scale=(-1, 1, 1))
+    union(angled_side_1, location=(-length/2 + 9.5, -12, -1), scale=(-1, -1, 1))
+    delete(angled_side_1)
+    
+    union('cube', location=( length/2 + 0.5, 0, -1), scale=(0.5, 10, 1.2))
+    union('cube', location=(-length/2 - 0.5, 0, -1), scale=(0.5, 10, 1.2))
+    
+    rotor = prim('cube', scale=(10, 8, 1.2))
+    for v in rotor.data.vertices: v.co.y -= 2
+    
+    with paragen_context(rotor):
+        rotor_guard = prim('cube', scale=(10, 2, 1.2))
+        for v in rotor_guard.data.vertices:
+            if v.co.x > 0 and v.co.y > 0: v.co.x -= 4
+            if v.co.x < 0 and v.co.y > 0: v.co.x += 4
+        union(rotor_guard, location=(0, 8, 0))
+        delete(rotor_guard)
+        
+        angled_side_2 = prim('cube', scale=(5, 4, 1.2))
+        for v in angled_side_2.data.vertices:
+            if v.co.x > 0 and v.co.y > 0: v.co.y -= 4
+        union(angled_side_2, location=( 15, -6, 0), scale=( 1, 1, 1))
+        union(angled_side_2, location=(-15, -6, 0), scale=(-1, 1, 1))
+        delete(angled_side_2)
+        
+        difference('cylinder', location=(0, 0, 0), radius=7, depth=5)
+    
+    for i in range(mid_segments + 1):
+        union(rotor, location=(length/2 - 40*(i + 1),  20, -1), scale=(1,  1, 1))
+        union(rotor, location=(length/2 - 40*(i + 1), -20, -1), scale=(1, -1, 1))
+    
+    delete(rotor)
+
 #########
 # Scene #
 #########
@@ -266,7 +313,8 @@ def blocky_racer():
 #sand_castle(name='Sand Castle', location=(0, 50, 0))
 #cactus_drink(name='Cactus Drink', location=(0, 70, 0), original=True)
 #cactus_drink_2(name='Cactus Drink 2', location=(-10, 70, 0))
-blocky_racer(name="Racer", location=(0, 80, 0))
+blocky_racer(name='Racer', location=(0, 80, 0))
+helicarrier(name='Helicarrier', location=(0, 100, 0), mid_segments=1)
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
