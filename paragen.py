@@ -305,25 +305,78 @@ def helicarrier(mid_segments=1):
     
     delete(rotor)
 
+@paragen
+def head():
+    material('Base', (0.2, 0.2, 0.2, 1.0))
+    union('cube', location=(0, 0, 0), scale=(1, 0.1, 0.1))
+
+@paragen
+def gramorgan():
+    material('Base', (0.2, 0.2, 0.2, 1.0))
+    union('cube', location=(0, 0, 0.25), scale=(7, 2, 0.25))
+    
+    l = 8
+    r = 0.25
+    x = -6.5
+    y = 1.5
+    for i in range(8):
+        union('cylinder', location=(x, y, l/2 + 0.5), radius=r + 0.05, depth=l, vertices=16)
+        difference('cylinder', location=(x, y, l/2 + 0.5), radius=r, depth=l, vertices=16)
+        x += 2*r + 0.15
+        l *= 0.90
+        r *= 0.95
+    
+    l = 7
+    r = 0.25
+    x = 6.5
+    y = 1.5
+    for i in range(8):
+        union('cylinder', location=(x, y, l/2 + 0.5), radius=r + 0.05, depth=l, vertices=16)
+        difference('cylinder', location=(x, y, l/2 + 0.5), radius=r, depth=l, vertices=16)
+        x -= 2*r + 0.15
+        l *= 0.90
+        r *= 0.95
+    
+    nest_test = head('gramo whatsit head')
+    union(nest_test, location=(0, 0, 1), rotation=(0, 0, pi/4))
+    delete(nest_test)
+    
+    material('Disc', (0.02, 0.02, 0.02, 1.0))
+    # 12 in record
+    union('cylinder', location=(0, 0, 0.5), radius=3.048/2, depth=0.1)
+
+@paragen
+def circus_tent(radius=10, height=8):
+    material('Red Canvas', base_color=(0.9, 0.02, 0.02, 1.0))
+    
+    union('cone', location=(0, 0, height - 6/2), radius1=radius, depth=6)
+    union('cylinder', location=(0, 0, height - 6.5), radius=radius, depth=1)
+    
+    cut = prim('cylinder', radius=radius - 0.1, depth=1)
+    with paragen_context(cut):
+        union('cone', location=(0, 0, 3.5 - 0.05), radius1=radius - 0.1, depth=5.9)
+    difference(cut, location=(0, 0, height - 6.5))
+    delete(cut)
+    
+    material('Wood', base_color=(0.287, 0.111, 0.016, 1))
+    union('cylinder', location=(0, 0, height/2 - 0.1), radius=0.2, depth=height - 0.2, vertices=16)
+    
+    union('cylinder', location=(radius - 0.2, 0, (height - 6)/2), radius=0.15, depth=height - 6, vertices=16)
+
 #########
 # Scene #
 #########
 
-#sad_scorpion_attempt(name='Sad Scorpion Attempt', location=(0, 30, 0))
-#sand_castle(name='Sand Castle', location=(0, 50, 0))
-#cactus_drink(name='Cactus Drink', location=(0, 70, 0), original=True)
-#cactus_drink_2(name='Cactus Drink 2', location=(-10, 70, 0))
-blocky_racer(name='Racer', location=(0, 80, 0))
-helicarrier(name='Helicarrier', location=(0, 100, 0), mid_segments=1)
+#sad_scorpion_attempt(name='Sad Scorpion Attempt', location=(30, 0, 0))
+#sand_castle(name='Sand Castle', location=(10, 20, 0))
+#cactus_drink(name='Cactus Drink', location=(40, 0, 0), original=True)
+#cactus_drink_2(name='Cactus Drink 2', location=(40, 5, 0))
+#blocky_racer(name='Racer', location=(50, 0, 0))
+#helicarrier(name='Helicarrier', location=(60, 70, 0), mid_segments=1)
+#gramorgan(name='Gramorgan', location=(40, 20, 0))
+circus_tent(name='Circus Test', location=(60, 20, 0))
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
 # - How different material settings behave after export
 # - How to manage trees of objects
-
-
-
-
-
-
-
