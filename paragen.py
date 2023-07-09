@@ -363,6 +363,59 @@ def circus_tent(radius=10, height=8):
     
     union('cylinder', location=(radius - 0.2, 0, (height - 6)/2), radius=0.15, depth=height - 6, vertices=16)
 
+@paragen
+def gazebo(height=7.5, radius=8, pillars=5):
+    material('Stone', base_color=(0.3, 0.3, 0.3, 1))
+    
+    # Base (light sections)
+    union('cylinder', location=(0, 0, 0.375), radius=radius - 0.5, depth=0.25)
+    union('cylinder', location=(0, 0, 0.875), radius=radius - 1.5, depth=0.25)
+    
+    # Ring above pillars
+    union('cylinder',
+        location=(0, 0, height - 2.25),
+        radius=radius - 1,
+        depth=0.5,
+    )
+    difference('cylinder',
+        location=(0, 0, height - 2.25),
+        radius=radius - 3,
+        depth=0.5,
+    )
+    
+    # Roof
+    union('cylinder',
+        location=(0, 0, height - 0.25),
+        radius=radius - 2.5,
+        depth=0.5,
+    )
+    
+    material('Dark Stone', base_color=(0.1, 0.1, 0.1, 1))
+    
+    # Base (dark sections)
+    union('cylinder', location=(0, 0, 0.125), radius=radius - 0.0, depth=0.25)
+    union('cylinder', location=(0, 0, 0.625), radius=radius - 1.0, depth=0.25)
+    
+    # Central pillar
+    union('cylinder',
+        location=(0, 0, 1 + (height - 1.5)/2),
+        radius = 0.75,
+        depth=height - 1.5,
+    )
+    
+    # Ring of pillars
+    for i in range(pillars):
+        θ = i/pillars*2*pi
+        x = (radius - 1.5)*cos(θ)
+        y = (radius - 1.5)*sin(θ)
+        
+        union('cylinder',
+            location=(x, y, (height - 1.75)/2),
+            radius=(0.5),
+            depth=height - 3.25,
+            vertices=16,
+        )
+
 #########
 # Scene #
 #########
@@ -374,7 +427,8 @@ def circus_tent(radius=10, height=8):
 #blocky_racer(name='Racer', location=(50, 0, 0))
 #helicarrier(name='Helicarrier', location=(60, 70, 0), mid_segments=1)
 #gramorgan(name='Gramorgan', location=(40, 20, 0))
-circus_tent(name='Circus Test', location=(60, 20, 0))
+#circus_tent(name='Circus Test', location=(60, 20, 0))
+gazebo(name='Gazebo', location=(70, 0, 0))
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
