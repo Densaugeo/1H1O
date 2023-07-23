@@ -416,6 +416,43 @@ def gazebo(height=7.5, radius=8, pillars=5):
             vertices=16,
         )
 
+@paragen
+def door():
+    material('Black Stone', base_color=(0.05, 0.05, 0.05, 1))
+    
+    union('cube', location=(2.25, 0, 3.5), scale=(2.5, 0.25, 3.5))
+    
+    material('Dark Stone', base_color=(0.2, 0.2, 0.2, 1))
+    
+    for z in [1, 3.5, 6]:
+        union('cube', location=(2.25, 0, z), scale=(2.5, 0.5, 0.5))
+
+@paragen
+def gate():
+    material('Stone', base_color=(0.3, 0.3, 0.3, 1))
+    
+    union('cube', location=(0, 0, -0.25), scale=(8, 8, 0.25))
+    
+    union('cube', location=(0, 0, 4), scale=(6, 1, 4))
+    difference('cube', location=(0, 0, 3.5), scale=(5, 1, 3.5))
+    
+    left_door = door(name='Left Door', location=(-4.75, 0, 0))
+    left_door.parent = paragen_context.active[-1]
+    
+    right_door = door(name='Right Door', location=(4.75, 0, 0), rotation=(0, 0, pi))
+    right_door.parent = paragen_context.active[-1]
+    
+    for sign in [-1, 1]:
+        union('cube', location=(sign*5.5, -3.5, 1.5), scale=(0.5, 0.5, 1.5))
+        union('cube', location=(sign*5.5,  3.5, 1.5), scale=(0.5, 0.5, 1.5))
+    
+    material('Black Stone', base_color=(0.05, 0.05, 0.05, 1))
+    
+    for sign in [-1, 1]:
+        union('cube', location=(sign*7, 0, 3), scale=(1, 0.25, 3))
+        union('cube', location=(sign*5.5, 0, 1), scale=(0.25, 3, 1))
+    
+
 #########
 # Scene #
 #########
@@ -428,7 +465,8 @@ def gazebo(height=7.5, radius=8, pillars=5):
 #helicarrier(name='Helicarrier', location=(60, 70, 0), mid_segments=1)
 #gramorgan(name='Gramorgan', location=(40, 20, 0))
 #circus_tent(name='Circus Test', location=(60, 20, 0))
-gazebo(name='Gazebo', location=(70, 0, 0))
+#gazebo(name='Gazebo', location=(70, 0, 0))
+gate(name='Gate', location=(90, 0, 0))
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
