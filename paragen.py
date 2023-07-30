@@ -451,7 +451,46 @@ def gate():
     for sign in [-1, 1]:
         union('cube', location=(sign*7, 0, 3), scale=(1, 0.25, 3))
         union('cube', location=(sign*5.5, 0, 1), scale=(0.25, 3, 1))
+
+@paragen
+def pin_wheel_windmill_spinner(blades=3, blade_length=25):
+    material('Steel', base_color=(0.7, 0.7, 0.7, 1))
     
+    union('cone', location=(0, 0, 0.25), radius1=0.5, radius2=0.35, depth=0.5, vertices=8)
+    union('cone', location=(0, 0, 0.75), radius1=0.35, radius2=0, depth=0.5, vertices=8)
+    
+    for i in range(blades):
+        θ = 2*pi*i/blades
+        
+        material(f'Blade {i}', base_color=(
+            1 if (i + 0) % 6 < 3 else 0,
+            1 if (i + 2) % 6 < 3 else 0,
+            1 if (i + 4) % 6 < 3 else 0,
+            1,
+        ))
+        
+        union('cube',
+            location=(cos(θ)*blade_length/2, sin(θ)*blade_length/2, 0.1), 
+            rotation=(0, 0, θ),
+            scale=(blade_length/2, 0.25, 0.05),
+        )
+
+@paragen
+def pinwheel_windmill(height=100, blades=3, blade_length=25):
+    material('Steel', base_color=(0.7, 0.7, 0.7, 1))
+    
+    union('cone', location=(0, 0, height/2), depth=height, radius1=1, radius2=0.5)
+    union('cube', location=(0, 0.5, height + 0.6), scale=(0.6, 1.1, 0.6))
+    union('cylinder', location=(0, 0, height + 0.6), rotation=(pi/2, 0, 0), radius=0.4, vertices=8)
+    
+    spinner = pin_wheel_windmill_spinner(
+        name=f'{paragen_context.active[-1].name}.Spinner',
+        location=(0, -0.7, height + 0.6),
+        rotation=(pi/2, 0, 0),
+        blades=blades,
+        blade_length=blade_length,
+    )
+    spinner.parent = paragen_context.active[-1]
 
 #########
 # Scene #
@@ -466,9 +505,9 @@ def gate():
 #gramorgan(name='Gramorgan', location=(40, 20, 0))
 #circus_tent(name='Circus Test', location=(60, 20, 0))
 #gazebo(name='Gazebo', location=(70, 0, 0))
-gate(name='Gate', location=(90, 0, 0))
+#gate(name='Gate', location=(90, 0, 0))
+pinwheel_windmill(name='Pinwheel Windmill', location=(110, 0, 0))
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
 # - How different material settings behave after export
-# - How to manage trees of objects
