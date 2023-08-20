@@ -492,6 +492,34 @@ def pinwheel_windmill(height=100, blades=3, blade_length=25):
     )
     spinner.parent = paragen_context.active[-1]
 
+@paragen
+def lego_couch(width=12, depth=4):
+    material('Green', base_color=(0.1, 0.5, 0.1, 1))
+    
+    # Cushions
+    union('cube', location=(0, 0, 2.4), scale=(width/2, depth/2, 0.8))
+    
+    # Back
+    union('cube', location=(0, depth/2 - 0.5, 4), scale=(width/2 - 1, 0.5, 1.2))
+    for i in range(width - 2):
+        union('cylinder', location=(i - width/2 + 1.5, depth/2 - 0.5, 5.3), radius=0.3, depth=0.2, vertices=8)
+    
+    # Arms
+    for x in [-width/2 + 0.5, width/2 - 0.5]:
+        union('cube', location=(x, 0, 3.6), scale=(0.5, depth/2, 0.4))
+        for i in range(depth):
+            union('cylinder', location=(x, i - depth/2 + 0.5, 4.1), radius=0.3, depth=0.2, vertices=8)
+    
+    material('Black', base_color=(0.1, 0.1, 0.1, 1))
+    
+    # Base
+    union('cube', location=(0, 0, 1.4), scale=(width/2, depth/2, 0.2))
+    
+    # Legs
+    for x in [-width/2 + 0.5, width/2 - 0.5]:
+        for y in [-depth/2 + 0.5, depth/2 - 0.5]:
+            union('cylinder', location=(x, y, 0.6), depth=1.2, radius=0.5, vertices=8)
+
 #########
 # Scene #
 #########
@@ -506,7 +534,11 @@ def pinwheel_windmill(height=100, blades=3, blade_length=25):
 #circus_tent(name='Circus Test', location=(60, 20, 0))
 #gazebo(name='Gazebo', location=(70, 0, 0))
 #gate(name='Gate', location=(90, 0, 0))
-pinwheel_windmill(name='Pinwheel Windmill', location=(110, 0, 0))
+#pinwheel_windmill(name='Pinwheel Windmill', location=(110, 0, 0), blades=20)
+lego_couch(name='Lego Couch', location=(120, 0, 0), width=100)
+lego_couch(name='Lego Couch 2', location=(120, 10, 0), width=4)
+lego_couch(name='Lego Couch 3', location=(120, 20, 0), depth=3)
+lego_couch(name='Lego Couch 4', location=(120, 30, 0), width=25, depth=2)
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
