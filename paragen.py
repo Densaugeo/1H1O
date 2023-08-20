@@ -535,10 +535,7 @@ def lego_couch(width=12, depth=4):
 #gazebo(name='Gazebo', location=(70, 0, 0))
 #gate(name='Gate', location=(90, 0, 0))
 #pinwheel_windmill(name='Pinwheel Windmill', location=(110, 0, 0), blades=20)
-lego_couch(name='Lego Couch', location=(120, 0, 0), width=100)
-lego_couch(name='Lego Couch 2', location=(120, 10, 0), width=4)
-lego_couch(name='Lego Couch 3', location=(120, 20, 0), depth=3)
-lego_couch(name='Lego Couch 4', location=(120, 30, 0), width=25, depth=2)
+lego_couch(name='Lego Couch', location=(120, 0, 0))
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
