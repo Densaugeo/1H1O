@@ -7,6 +7,8 @@ import bpy, mathutils # pyright: ignore - Pylance can't see mathutils
 # Helpers #
 ###########
 
+# Maybe I should trying renaming 'mesh' to 'bpy_object', since it's not really
+# a mesh
 def boolean(operation: str, mesh: bpy.types.Object | str,
     location: tuple[float, float, float],
     rotation: tuple[float, float, float] = None,
@@ -61,7 +63,8 @@ def delete(*objects: bpy.types.Object) -> None:
         bpy.data.objects[object.name].select_set(True)
     bpy.ops.object.delete()
 
-def material(name: str, base_color: tuple[float, float, float, float]) -> None:
+def material(name: str, base_color: tuple[float, float, float, float]
+    ) -> bpy.types.Material:
     '''
     Create a GLTF-compatible material attached to the active Paragen context's
     base
@@ -76,14 +79,42 @@ def material(name: str, base_color: tuple[float, float, float, float]) -> None:
     material.node_tree.nodes['Principled BSDF'].inputs['Base Color'
         ].default_value = base_color
     paragen_context.active[-1].data.materials.append(material)
+    
+    return material
 
-def prim(name: str, **mesh_args) -> bpy.types.Object:
+def prim(name: str, material: bpy.types.Material = None, **mesh_args
+    ) -> bpy.types.Object:
     '''
     Create and return a bpy mesh. Uses bpy.ops.mesh.primitive_[name]_add() to
-    build the mesh, and remaining arguments are passed through
+    build the mesh, optionally applies a material if passed in, and remaining
+    arguments are passed through
     '''
     getattr(bpy.ops.mesh, f'primitive_{name}_add')(**mesh_args)
+    
+    if material is not None:
+        bpy.context.active_object.data.materials.append(material)
+    
     return bpy.context.active_object
+
+def instance(name: str, bpy_object: bpy.types.Object,
+    location: tuple[float, float, float] = (0, 0, 0),
+    rotation: tuple[float, float, float] = (0, 0, 0),
+    scale   : tuple[float, float, float] = (1, 1, 1)) -> None:
+    '''
+    Creates a new instance of a given bpy mesh. Automatically adds it to current
+    scene and paragen object
+    '''
+    full_name = f'{paragen_context.active[-1].name}.{name}'
+    
+    result = bpy_object.copy()
+    result.parent = paragen_context.active[-1]
+    bpy.context.scene.collection.objects.link(result)
+    
+    result.name = full_name
+    result.data.name = full_name
+    result.location = location
+    result.rotation_euler = rotation
+    result.scale = scale
 
 @contextlib.contextmanager
 def paragen_context(bpy_object):
@@ -114,9 +145,12 @@ def paragen(func):
         # Make sure nothing is selected
         bpy.ops.object.select_all(action='DESELECT')
         
-        # Remove old object. Old meshes remain in memory, but won't be saved
+        # Remove old object and children. Old meshes remain in memory, but won't
+        # be saved
         if name in bpy.data.objects:
             bpy.data.objects[name].select_set(True)
+            for object in bpy.data.objects[name].children:
+                object.select_set(True)
             bpy.ops.object.delete()
         
         mesh = bpy.data.meshes.new(name)
@@ -520,6 +554,91 @@ def lego_couch(width=12, depth=4):
         for y in [-depth/2 + 0.5, depth/2 - 0.5]:
             union('cylinder', location=(x, y, 0.6), depth=1.2, radius=0.5, vertices=8)
 
+@paragen
+def tunnel(width=8, height=4, segments=8):
+    stone = material('Stone', base_color=(0.2, 0.2, 0.2, 1))
+    dark_stone = material('Dark Stone', base_color=(0.1, 0.1, 0.1, 1))
+    
+    # Floor + ceiling
+    for z in [0.5, height + 1.5]:
+        union('cube', material=stone,
+            location=(0, 4*segments + 0.5, z),
+            scale=(width/2, 4*segments + 0.5, 0.5),
+        )
+    
+    # Wall
+    for x_sign in [-1, 1]:
+        union('cube', material=stone,
+            location=(x_sign*(width/2 + 0.5), 4*segments + 0.5, height/2 + 1),
+            scale=(0.5, 4*segments + 0.5, height/2 + 1),
+        )
+    
+    name = f'{paragen_context.active[-1].name}.BraceTemplate'
+    brace_mesh = bpy.data.meshes.new(name)
+    brace = bpy.data.objects.new(name, brace_mesh)
+    bpy.context.scene.collection.objects.link(brace)
+
+    brace.data.materials.append(dark_stone)
+    
+    with paragen_context(brace):
+        # Wall pillar
+        for x_sign in [-1, 1]:
+            union('cube',
+                location=(x_sign*(width/2 - 0.5), 0, height/2),
+                scale=(0.5, 0.5, height/2),
+            )
+        
+        # Roof beam
+        union('cube',
+            location=(0, 0, height - 0.5),
+            scale=(width/2 - 1, 0.5, 0.5),
+        )
+    
+    name = f'{paragen_context.active[-1].name}.ArchTemplate'
+    arch_mesh = bpy.data.meshes.new(name)
+    arch = bpy.data.objects.new(name, arch_mesh)
+    bpy.context.scene.collection.objects.link(arch)
+
+    arch.data.materials.append(stone)
+    arch.data.materials.append(dark_stone)
+    
+    with paragen_context(arch):
+        # Wall arch
+        for location in [
+            (-width/2 + 0.5, 1, height - 2.5),
+            (-width/2 + 0.5, 2, height - 1.5),
+            (-width/2 + 0.5, 3, height - 0.5),
+        ]:
+            union('cube', material=dark_stone,
+                location=location,
+                scale=(0.5, 0.5, 0.5),
+            )
+        
+        # Infill above wall arch
+        union('cube', material=stone,
+            location=(-width/2 + 0.5, 1, height - 1),
+            scale=(0.5, 0.5, 1),
+        )
+        union('cube', material=stone,
+            location=(-width/2 + 0.5, 2, height - 0.5),
+            scale=(0.5, 0.5, 0.5),
+        )
+    
+    for i in range(segments + 1):
+        location = (0, 8*i + 0.5, 1)
+        
+        instance(f'Brace{i}', brace, location)
+        
+        if i != segments:
+            instance(f'Arch{i}-0', arch, location, scale=( 1,  1, 1))
+            instance(f'Arch{i}-1', arch, location, scale=(-1,  1, 1))
+        
+        if i != 0:
+            instance(f'Arch{i}-2', arch, location, scale=( 1, -1, 1))
+            instance(f'Arch{i}-3', arch, location, scale=(-1, -1, 1))
+    
+    delete(brace, arch)
+
 #########
 # Scene #
 #########
@@ -535,7 +654,8 @@ def lego_couch(width=12, depth=4):
 #gazebo(name='Gazebo', location=(70, 0, 0))
 #gate(name='Gate', location=(90, 0, 0))
 #pinwheel_windmill(name='Pinwheel Windmill', location=(110, 0, 0), blades=20)
-lego_couch(name='Lego Couch', location=(120, 0, 0))
+#lego_couch(name='Lego Couch', location=(120, 0, 0))
+tunnel('Tunnel', location=(140, 0, 0), width=12, height=8)
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
