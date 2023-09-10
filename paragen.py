@@ -639,6 +639,68 @@ def tunnel(width=8, height=4, segments=8):
     
     delete(brace, arch)
 
+# This pear leaves a lot of internal objects when it's done that aren't
+# necessary. Needs some way of merging them into a single geometry. Considering
+# the number of different Blender functions needed for this, probably not worth
+# sorting out until after switching to webassembly
+@paragen
+def lego_pear(radius=4, bumps=True):
+    # Standard RGB values are 0x009247 for green and 0x9aca3a for light green.
+    # Conversion so Blender RGB is not strightforward - the numbers used here
+    # were obtained by entering the above hex values into Blender's GUI and
+    # copying the RGB back out (and 0x692e14 for brown)
+    green = material('Green', base_color=(0, 0.287441, 0.06301, 1))
+    light_green = material('Light Green', base_color=(0.323143, 0.590619, 0.042312, 1))
+    brown = material('Brown', base_color=(0.141263, 0.027321, 0.006995, 1))
+    
+    light_green_block = prim('cube', scale=(0.5, 0.5, 0.6), material=light_green)
+    
+    green_bump = prim('cylinder', radius=0.3, depth=0.2, vertices=8,
+        material=green)
+    light_green_bump = prim('cylinder', radius=0.3, depth=0.2, vertices=8,
+        material=light_green)
+    
+    layers = []
+    
+    for i in range(1, radius):
+        layers.append(radius - radius/(2**i))
+        if radius/(2**i) <= 1: break
+    
+    # Central piece
+    for _ in range(radius): layers.append(radius)
+    
+    # Cone-shaped top part of fruit body
+    for i in range(radius - 1, 1, -1):
+        layers.append(i + 0.75)
+        layers.append(i)
+    
+    # Top layer is just a 2x2 square (so radius=1, no 1.75 intermediary)
+    layers.append(1)
+    
+    print(layers)
+    
+    # Make all those layers
+    for i, r in enumerate(layers):
+        for x in range(-ceil(r), ceil(r)):
+            for y in range(-ceil(r), ceil(r)):
+                if (x + 0.5)**2 + (y + 0.5)**2 < r**2:
+                    instance('Pear Block-{x}-{y}', light_green_block, location=(x + 0.5, y + 0.5, 0.6 + 1.2*i))
+                    
+                    if bumps:
+                        instance('Pear Block Bump-{x}-{y}', light_green_bump, location=(x + 0.5, y + 0.5, 1.3 + 1.2*i))
+    
+    # Stem
+    union('cube', location=(0, -0.5, 0.6 + 1.2*len(layers)), scale=(1, 0.5, 0.6), material=brown)
+    
+    # Leaf
+    union('cube', location=(0, 0, 1.8 + 1.2*len(layers)), scale=(1, 2, 0.6), material=green)
+    if bumps:
+        for x in [-0.5, 0.5]:
+            for y in [-1.5, -0.5, 0.5, 1.5]:
+                instance(f'Bump-{x}-{y}', green_bump, location=(x, y, 2.5 + 1.2*len(layers)))
+    
+    delete(light_green_block, green_bump, light_green_bump)
+
 #########
 # Scene #
 #########
@@ -655,7 +717,9 @@ def tunnel(width=8, height=4, segments=8):
 #gate(name='Gate', location=(90, 0, 0))
 #pinwheel_windmill(name='Pinwheel Windmill', location=(110, 0, 0), blades=20)
 #lego_couch(name='Lego Couch', location=(120, 0, 0))
-tunnel('Tunnel', location=(140, 0, 0), width=12, height=8)
+#tunnel('Tunnel', location=(140, 0, 0), width=12, height=8)
+lego_pear('Lego Pear', location=(160, 0, 0))
+
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
