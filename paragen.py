@@ -1,4 +1,4 @@
-import random, contextlib
+import random, contextlib, dataclasses, typing
 from math import *
 
 import bpy, mathutils # pyright: ignore - Pylance can't see mathutils
@@ -16,11 +16,10 @@ def boolean(operation: str, mesh: bpy.types.Object | str,
     '''
     Perform specified boolean operation of `mesh` with active Paragen context.
     If `mesh` is a string, bpy.ops.mesh.primitive_[mesh]_add() will be used to
-    generate a temporary mesh. Additional arguments will either be passed to the
-    mesh constructor (if `mesh` is a string)
+    generate a temporary mesh. Additional arguments will be passed to the mesh
+    constructor (if `mesh` is a string)
     '''
-    temporary_mesh = isinstance(mesh, str)
-    if temporary_mesh: mesh = prim(mesh, **mesh_args)
+    if isinstance(mesh, str): mesh = prim(mesh, **mesh_args)
     
     # Location is a required argument because if it isn't set, it'll default to
     # wherever Blender's 3D cursor is
@@ -29,18 +28,15 @@ def boolean(operation: str, mesh: bpy.types.Object | str,
     if scale is not None: mesh.scale = scale
     
     # Sets bpy.context.active_object
-    bpy.context.view_layer.objects.active = paragen_context.active[-1]
+    bpy.context.view_layer.objects.active = paragen_stack[-1].bpy_object
     
-    booly = paragen_context.active[-1].modifiers.new(name='booly',
+    booly = paragen_stack[-1].bpy_object.modifiers.new(name='booly',
         type='BOOLEAN')
     booly.object = mesh
     booly.operation = operation
     bpy.ops.object.modifier_apply(modifier='booly')
     
     bpy.ops.object.select_all(action='DESELECT')
-    if temporary_mesh:
-        bpy.data.objects[mesh.name].select_set(True)
-        bpy.ops.object.delete()
 
 def union(*args, **kwargs):
     '''
@@ -54,22 +50,13 @@ def difference(*args, **kwargs):
     '''
     return boolean('DIFFERENCE', *args, **kwargs)
 
-def delete(*objects: bpy.types.Object) -> None:
-    '''
-    Deletes the supplied bpy objects
-    '''
-    bpy.ops.object.select_all(action='DESELECT')
-    for object in objects:
-        bpy.data.objects[object.name].select_set(True)
-    bpy.ops.object.delete()
-
 def material(name: str, base_color: tuple[float, float, float, float]
     ) -> bpy.types.Material:
     '''
     Create a GLTF-compatible material attached to the active Paragen context's
     base
     '''
-    full_name = f'{paragen_context.active[-1].name}.{name}'
+    full_name = get_name_prefix() + name
     
     if full_name in bpy.data.materials:
         bpy.data.materials.remove(bpy.data.materials[full_name])
@@ -78,9 +65,25 @@ def material(name: str, base_color: tuple[float, float, float, float]
     material.use_nodes = True
     material.node_tree.nodes['Principled BSDF'].inputs['Base Color'
         ].default_value = base_color
-    paragen_context.active[-1].data.materials.append(material)
+    paragen_stack[-1].bpy_object.data.materials.append(material)
     
     return material
+
+def blank(name: str, materials: [bpy.types.Material] = []) -> bpy.types.Object:
+    '''
+    Create and return a blank bpy object
+    '''
+    full_name = get_name_prefix() + name
+    
+    mesh = bpy.data.meshes.new(full_name)
+    bpy_object = bpy.data.objects.new(full_name, mesh)
+    bpy.context.scene.collection.objects.link(bpy_object)
+    paragen_stack[-1].temps.append(bpy_object)
+    
+    for material in materials:
+        mesh.materials.append(material)
+    
+    return bpy_object
 
 def prim(name: str, material: bpy.types.Material = None, **mesh_args
     ) -> bpy.types.Object:
@@ -94,31 +97,45 @@ def prim(name: str, material: bpy.types.Material = None, **mesh_args
     if material is not None:
         bpy.context.active_object.data.materials.append(material)
     
+    paragen_stack[-1].temps.append(bpy.context.active_object)
+    
     return bpy.context.active_object
 
-def instance(name: str, bpy_object: bpy.types.Object,
+def instance(name: str, bpy_object: bpy.types.Object | str,
     location: tuple[float, float, float] = (0, 0, 0),
     rotation: tuple[float, float, float] = (0, 0, 0),
-    scale   : tuple[float, float, float] = (1, 1, 1)) -> None:
+    scale   : tuple[float, float, float] = (1, 1, 1), **bpy_args) -> None:
     '''
-    Creates a new instance of a given bpy mesh. Automatically adds it to current
-    scene and paragen object
+    Creates a new instance of a given bpy objext. Automatically adds it to
+    current scene and paragen object. If `bpy_object` is a string,
+    bpy.ops.mesh.primitive_[bpy_object]_add() will be used to generate a
+    temporary bpy_object. Additional arguments will be passed to the bpy_object
+    constructor (if `bpy_object` is a string)
     '''
-    full_name = f'{paragen_context.active[-1].name}.{name}'
+    if isinstance(bpy_object, str): bpy_object = prim(bpy_object, **bpy_args)
     
     result = bpy_object.copy()
-    result.parent = paragen_context.active[-1]
+    result.parent = paragen_stack[-1].bpy_object
     bpy.context.scene.collection.objects.link(result)
     
-    result.name = full_name
-    result.data.name = full_name
+    result.name = get_name_prefix() + name
     result.location = location
     result.rotation_euler = rotation
     result.scale = scale
 
+@dataclasses.dataclass
+class ParagenStackLayer:
+    bpy_object: bpy.types.Object
+    temps: typing.List[bpy.types.Object] = \
+        dataclasses.field(default_factory=list)
+paragen_stack: typing.List[ParagenStackLayer] = []
+
+def get_name_prefix() -> str:
+    return '.'.join([layer.bpy_object.name for layer in paragen_stack]) + '.'
+
 @contextlib.contextmanager
 def paragen_context(bpy_object):
-    paragen_context.active.append(bpy_object)
+    paragen_stack.append(ParagenStackLayer(bpy_object))
     
     if bpy.context.active_object is not None:
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -130,10 +147,14 @@ def paragen_context(bpy_object):
     
     yield bpy_object
     
+    bpy.ops.object.select_all(action='DESELECT')
+    for object in paragen_stack[-1].temps:
+        bpy.data.objects[object.name].select_set(True)
+    bpy.ops.object.delete()
+    
     bpy_object.matrix_world = matrix_world
     
-    paragen_context.active.pop()
-paragen_context.active = []
+    paragen_stack.pop()
 
 def paragen(func):
     def decorated_function(name, location=(0, 0, 0), rotation=(0, 0, 0),
@@ -224,8 +245,6 @@ def sand_castle(tower_base_height=4, tower_peak_height=6):
         )
     
     material('Sand', (0.65, 0.55, 0.15, 1.0))
-    
-    delete(tower, wall)
 
 @paragen
 def cactus_drink(height=2, spines=50, spine_seed=123, original=False):
@@ -259,8 +278,6 @@ def cactus_drink(height=2, spines=50, spine_seed=123, original=False):
             location=(1.2*cos(θ), 1.2*sin(θ), z),
             rotation=(0, pi/2, θ)
         )
-    
-    delete(bar, spine)
 
 def cactus_drink_2(name, height=2, **kwargs):
     cup = cactus_drink(f'{name}.Cup', height=height, **kwargs)
@@ -308,7 +325,6 @@ def helicarrier(mid_segments=1):
     union(angled_side_1, location=( length/2 - 9.5, -12, -1), scale=( 1, -1, 1))
     union(angled_side_1, location=(-length/2 + 9.5,  12, -1), scale=(-1, 1, 1))
     union(angled_side_1, location=(-length/2 + 9.5, -12, -1), scale=(-1, -1, 1))
-    delete(angled_side_1)
     
     union('cube', location=( length/2 + 0.5, 0, -1), scale=(0.5, 10, 1.2))
     union('cube', location=(-length/2 - 0.5, 0, -1), scale=(0.5, 10, 1.2))
@@ -322,22 +338,18 @@ def helicarrier(mid_segments=1):
             if v.co.x > 0 and v.co.y > 0: v.co.x -= 4
             if v.co.x < 0 and v.co.y > 0: v.co.x += 4
         union(rotor_guard, location=(0, 8, 0))
-        delete(rotor_guard)
         
         angled_side_2 = prim('cube', scale=(5, 4, 1.2))
         for v in angled_side_2.data.vertices:
             if v.co.x > 0 and v.co.y > 0: v.co.y -= 4
         union(angled_side_2, location=( 15, -6, 0), scale=( 1, 1, 1))
         union(angled_side_2, location=(-15, -6, 0), scale=(-1, 1, 1))
-        delete(angled_side_2)
         
         difference('cylinder', location=(0, 0, 0), radius=7, depth=5)
     
     for i in range(mid_segments + 1):
         union(rotor, location=(length/2 - 40*(i + 1),  20, -1), scale=(1,  1, 1))
         union(rotor, location=(length/2 - 40*(i + 1), -20, -1), scale=(1, -1, 1))
-    
-    delete(rotor)
 
 @paragen
 def head():
@@ -373,7 +385,6 @@ def gramorgan():
     
     nest_test = head('gramo whatsit head')
     union(nest_test, location=(0, 0, 1), rotation=(0, 0, pi/4))
-    delete(nest_test)
     
     material('Disc', (0.02, 0.02, 0.02, 1.0))
     # 12 in record
@@ -390,7 +401,6 @@ def circus_tent(radius=10, height=8):
     with paragen_context(cut):
         union('cone', location=(0, 0, 3.5 - 0.05), radius1=radius - 0.1, depth=5.9)
     difference(cut, location=(0, 0, height - 6.5))
-    delete(cut)
     
     material('Wood', base_color=(0.287, 0.111, 0.016, 1))
     union('cylinder', location=(0, 0, height/2 - 0.1), radius=0.2, depth=height - 0.2, vertices=16)
@@ -471,10 +481,10 @@ def gate():
     difference('cube', location=(0, 0, 3.5), scale=(5, 1, 3.5))
     
     left_door = door(name='Left Door', location=(-4.75, 0, 0))
-    left_door.parent = paragen_context.active[-1]
+    left_door.parent = paragen_stack[-1].bpy_object
     
     right_door = door(name='Right Door', location=(4.75, 0, 0), rotation=(0, 0, pi))
-    right_door.parent = paragen_context.active[-1]
+    right_door.parent = paragen_stack[-1].bpy_object
     
     for sign in [-1, 1]:
         union('cube', location=(sign*5.5, -3.5, 1.5), scale=(0.5, 0.5, 1.5))
@@ -518,13 +528,13 @@ def pinwheel_windmill(height=100, blades=3, blade_length=25):
     union('cylinder', location=(0, 0, height + 0.6), rotation=(pi/2, 0, 0), radius=0.4, vertices=8)
     
     spinner = pin_wheel_windmill_spinner(
-        name=f'{paragen_context.active[-1].name}.Spinner',
+        name=get_name_prefix() + 'Spinner',
         location=(0, -0.7, height + 0.6),
         rotation=(pi/2, 0, 0),
         blades=blades,
         blade_length=blade_length,
     )
-    spinner.parent = paragen_context.active[-1]
+    spinner.parent = paragen_stack[-1].bpy_object
 
 @paragen
 def lego_couch(width=12, depth=4):
@@ -573,13 +583,8 @@ def tunnel(width=8, height=4, segments=8):
             scale=(0.5, 4*segments + 0.5, height/2 + 1),
         )
     
-    name = f'{paragen_context.active[-1].name}.BraceTemplate'
-    brace_mesh = bpy.data.meshes.new(name)
-    brace = bpy.data.objects.new(name, brace_mesh)
-    bpy.context.scene.collection.objects.link(brace)
-
+    brace = blank('BraceTemplate', materials=[dark_stone])
     brace.data.materials.append(dark_stone)
-    
     with paragen_context(brace):
         # Wall pillar
         for x_sign in [-1, 1]:
@@ -594,14 +599,7 @@ def tunnel(width=8, height=4, segments=8):
             scale=(width/2 - 1, 0.5, 0.5),
         )
     
-    name = f'{paragen_context.active[-1].name}.ArchTemplate'
-    arch_mesh = bpy.data.meshes.new(name)
-    arch = bpy.data.objects.new(name, arch_mesh)
-    bpy.context.scene.collection.objects.link(arch)
-
-    arch.data.materials.append(stone)
-    arch.data.materials.append(dark_stone)
-    
+    arch = blank('ArchTemplate', materials=[stone, dark_stone])
     with paragen_context(arch):
         # Wall arch
         for location in [
@@ -636,8 +634,6 @@ def tunnel(width=8, height=4, segments=8):
         if i != 0:
             instance(f'Arch{i}-2', arch, location, scale=( 1, -1, 1))
             instance(f'Arch{i}-3', arch, location, scale=(-1, -1, 1))
-    
-    delete(brace, arch)
 
 # This pear leaves a lot of internal objects when it's done that aren't
 # necessary. Needs some way of merging them into a single geometry. Considering
@@ -677,8 +673,6 @@ def lego_pear(radius=4, bumps=True):
     # Top layer is just a 2x2 square (so radius=1, no 1.75 intermediary)
     layers.append(1)
     
-    print(layers)
-    
     # Make all those layers
     for i, r in enumerate(layers):
         for x in range(-ceil(r), ceil(r)):
@@ -698,8 +692,69 @@ def lego_pear(radius=4, bumps=True):
         for x in [-0.5, 0.5]:
             for y in [-1.5, -0.5, 0.5, 1.5]:
                 instance(f'Bump-{x}-{y}', green_bump, location=(x, y, 2.5 + 1.2*len(layers)))
+
+@paragen
+def pencil_tower(levels=6, angle=0.245, lead_height=7):
+    # 20 for the eraser + sleeve at the base, 5*sin(angle) for the tip
+    height = levels*10 + 20 + 5/sin(angle)
     
-    delete(light_green_block, green_bump, light_green_bump)
+    wall_surface = material('Wall Surface', base_color=(0.0, 0.2, 0.8, 1))
+    
+    union('cylinder', vertices=6,
+        location=(0, 0, height/2 + 10),
+        scale=(5, 5, height/2 - 10),
+        material=wall_surface,
+    )
+    boolean('INTERSECT', 'cone', depth=height, radius1=tan(angle)*height,
+        radius2=0, vertices=36,
+        location=(0, 0, height/2),
+        material=material('Exposed Wood', base_color=(0.5, 0.5, 0.3, 1)),
+    )
+    difference('cube',
+        location=(0, 0, height),
+        scale=(10, 10, lead_height),
+    )
+    union('cone', depth=lead_height, radius1=tan(angle)*lead_height,
+        radius2=0, vertices=36,
+        location=(0, 0, height - lead_height/2),
+        material=material('Lead', base_color=(0.1, 0.1, 0.1, 1)),
+    )
+    
+    instance('Eraser', 'cylinder', depth=10, radius=5, vertices=36,
+        location=(0, 0, 5),
+        material=material('Rubber', base_color=(0.55, 0.06, 0.21, 1)),
+    )
+    
+    instance('Sleeve', 'cylinder', depth=12, radius=5.5, vertices=36,
+        location=(0, 0, 15),
+        material=material('Brass', base_color=(0.8, 0.8, 0.2, 1)),
+    )
+    
+    glass = material('Glass', base_color=(0.1, 0.8, 0.8, 1))
+    
+    window = prim('cube', scale=(0.25, 1.5, 2.5), material=glass)
+    for level in range(levels):
+        for i in range(6):
+            θ = i*pi/3
+            apothem = 5*sqrt(3)/2
+            x = apothem*cos(θ)
+            y = apothem*sin(θ)
+            instance(f'Window{level}-{i}', window,
+                location=(x, y, 25 + 10*level),
+                rotation=(0, 0, θ),
+            )
+    
+    doorway = blank('Doorway', materials=[wall_surface])
+    with paragen_context(doorway):
+        union('cube', location=(0, 0, 3), scale=(2.5, 2, 3))
+        difference('cube', location=(0, 0, 2.75), scale=(2, 3, 2.75))
+    instance('Doorway', doorway, location=(0, -5, 0))
+    
+    instance('Door', 'cube',
+        location=(0, -6, 2.75),
+        scale=(2, 0.1, 2.75),
+        material=glass,
+    )
 
 #########
 # Scene #
@@ -718,7 +773,8 @@ def lego_pear(radius=4, bumps=True):
 #pinwheel_windmill(name='Pinwheel Windmill', location=(110, 0, 0), blades=20)
 #lego_couch(name='Lego Couch', location=(120, 0, 0))
 #tunnel('Tunnel', location=(140, 0, 0), width=12, height=8)
-lego_pear('Lego Pear', location=(160, 0, 0))
+#lego_pear('Lego Pear', location=(160, 0, 0))
+pencil_tower('Pencil Tower', location=(180, 0, 0))
 
 
 # Unsolved problems:
