@@ -904,6 +904,54 @@ def conveyor(width=2, length=8, height=4):
         union('cube', p=(0, 0, z), s=(length/2, width/2, 0.05),
             material=neoprene)
 
+@paragen
+def spiderbot():
+    kevlar = material('Kevlar', base_color=(0.05, 0.05, 0.05, 1))
+    steel = material('Steel', base_color=(0.9, 0.9, 0.9, 1), metallic=1)
+    eye_material = material('Eye Material', base_color=(0, 0, 0, 0), metallic=1)
+    
+    union('ico_sphere', p=(0, 0, 2), s=(2, 4, 1), subdivisions=3,
+        material=kevlar)
+    
+    leg = blank('Leg', materials=[kevlar, steel])
+    with paragen_context(leg):
+        pipe = prim('cylinder', radius=0.125, depth=1, vertices=8,
+            material=steel)
+        casing = prim('cylinder', radius=0.25, depth=1, vertices=16,
+            material=kevlar)
+        union(pipe  , p=(2, 0, 0), ry=pi/2, sz=4)
+        union(casing, p=(2, 0, 0), ry=pi/2, sz=3)
+        union(pipe  , p=(5, 0, 1), ry=pi/4, sz=2*2**0.5)
+        union(casing, p=(5, 0, 1), ry=pi/4, sz=2*2**0.5 - 1)
+        union(pipe  , p=(6 + 2*tan(pi/8), 0, 0), ry=-pi/8, sz=4/cos(pi/8))
+        union(casing, p=(6 + 2*tan(pi/8), 0, 0), ry=-pi/8, sz=4/cos(pi/8) - 1)
+        
+        joint = prim('cylinder', radius = 0.25, depth=0.5, vertices=16,
+            material=kevlar)
+        union(joint, p=(4, 0, 0), rx=pi/2)
+        union(joint, p=(6, 0, 2), rx=pi/2)
+    
+    for mirror_x in [-1, 1]:
+        for mirror_y in [0, pi]:
+            for θ in [pi/4, pi/12]:
+                θ = θ*mirror_x + mirror_y
+                instance('Leg', leg, p=(1.75*cos(θ), -3.75*sin(θ), 2), rz=-θ)
+    
+    principal_eye = prim('ico_sphere', radius=0.25, subdivisions=3,
+        material=eye_material)
+    for polygon in principal_eye.data.polygons:
+        polygon.use_smooth = True
+    
+    secondary_eye = prim('ico_sphere', radius=0.125, material=eye_material)
+    for polygon in secondary_eye.data.polygons:
+        polygon.use_smooth = True
+    
+    for x_sign in [-1, 1]:
+        instance('Eye', principal_eye, p=(x_sign*0.3, -3.85, 2))
+        instance('Eye', secondary_eye, p=(x_sign*0.8, -3.6, 2))
+        for z in [1.7, 2.3]:
+            instance('Eye', secondary_eye, p=(x_sign*0.6, -3.6, z))
+
 #########
 # Scene #
 #########
@@ -924,7 +972,8 @@ def conveyor(width=2, length=8, height=4):
 #lego_pear('Lego Pear', p=(160, 0, 0))
 #pencil_tower('Pencil Tower', p=(180, 0, 0))
 #geometry_crusher('Geometry Crusher', p=(200, 0, 0))
-conveyor('Geometry Conveyor', p=(205, 0, 0), height=3, width=2.5, length=16)
+#conveyor('Geometry Conveyor', p=(205, 0, 0), height=3, width=2.5, length=16)
+spiderbot('Spiderbot', p=(230, 0, 0))
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
