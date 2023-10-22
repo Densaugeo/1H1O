@@ -952,6 +952,32 @@ def spiderbot():
         for z in [1.7, 2.3]:
             instance('Eye', secondary_eye, p=(x_sign*0.6, -3.6, z))
 
+@paragen
+def web(sections: int = 16, r = 50):
+    pumpkin_silk = material('Pumpkin Silk', base_color=(0.8, 0.25, 0.05, 1))
+    
+    strand = prim('cylinder', radius=0.125, depth=1, vertices=8,
+        material=pumpkin_silk)
+    
+    for i in range(sections):
+        θ = 2*pi*i/sections
+        
+        instance('Main Strand', strand, px=r/2*cos(θ), py=r/2*sin(θ), ry=pi/2,
+            rz=θ, sz=r)
+        
+        section_angle = 2*pi/sections
+        θ_2 = θ + 0.25*section_angle
+        θ_3 = θ + 0.75*section_angle
+        
+        for r_cross in range(0, r - 2, 10):
+            instance('Cross Strand', strand, px=r_cross*cos(θ_2), 
+                py=r_cross*sin(θ_2), ry=pi/2, rz=θ_2 + 0.6*pi, 
+                sz=3.3/sections*r_cross)
+            
+            instance('Cross Strand', strand, px=r_cross*cos(θ_3), 
+                py=r_cross*sin(θ_3), ry=pi/2, rz=θ_3 + 0.4*pi,
+                sz=3.3/sections*r_cross)
+
 #########
 # Scene #
 #########
@@ -974,6 +1000,7 @@ def spiderbot():
 #geometry_crusher('Geometry Crusher', p=(200, 0, 0))
 #conveyor('Geometry Conveyor', p=(205, 0, 0), height=3, width=2.5, length=16)
 spiderbot('Spiderbot', p=(230, 0, 0))
+web('Web', sections=16, p=(230, 0, 0))
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
