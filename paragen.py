@@ -978,6 +978,27 @@ def web(sections: int = 16, r = 50):
                 py=r_cross*sin(θ_3), ry=pi/2, rz=θ_3 + 0.4*pi,
                 sz=3.3/sections*r_cross)
 
+@paragen
+def snake(segments: int = 16):
+    kevlar = material('Kevlar', base_color=(0.05, 0.05, 0.05, 1))
+    steel = material('Steel', base_color=(0.9, 0.9, 0.9, 1), metallic=1)
+    color_1 = material('Color 1', base_color=(0.80, 0.02, 0.30, 1))
+    color_2 = material('Color 2', base_color=(0.80, 0.02, 0.02, 1))
+    
+    segment = blank('Segment', materials=[kevlar, color_1, color_2])
+    with paragen_context(segment):
+        union('cylinder', radius=1, depth=0.5, vertices=16, pz=-1.25, material=kevlar)
+        union('cylinder', radius=1, depth=1, vertices=16, pz=-0.5, material=color_1)
+        union('cylinder', radius=1, depth=1, vertices=16, pz=0.5, material=color_2)
+        union('cylinder', radius=1, depth=0.5, vertices=16, pz=1.25, material=kevlar)
+    
+    for i in range(segments):
+        θ = 2*pi*i/16
+        x = 10*cos(θ)
+        y = 10*sin(θ)
+        z = 0.25*i
+        instance('Segment', segment, px=x, py=y, pz=z, ry=pi/2, rz=θ - pi/2)
+
 #########
 # Scene #
 #########
@@ -999,8 +1020,9 @@ def web(sections: int = 16, r = 50):
 #pencil_tower('Pencil Tower', p=(180, 0, 0))
 #geometry_crusher('Geometry Crusher', p=(200, 0, 0))
 #conveyor('Geometry Conveyor', p=(205, 0, 0), height=3, width=2.5, length=16)
-spiderbot('Spiderbot', p=(230, 0, 0))
-web('Web', sections=16, p=(230, 0, 0))
+#spiderbot('Spiderbot', p=(230, 0, 0))
+#web('Web', sections=16, p=(230, 0, 0))
+snake('Snek', segments=32, p=(230, 60, 0))
 
 # Unsolved problems:
 # - How to select an individual vertex and move or merge it
